@@ -1,0 +1,32 @@
+{
+	"name": "ros",
+	"image": "liuxingjun/ros:grpc",
+	"containerEnv": {
+		"DISPLAY": "unix:0",
+		"ROS_LOCALHOST_ONLY": "1",
+		"ROS_DOMAIN_ID": "42"
+	},
+	"runArgs": [
+		"--privileged",
+		"-e",
+		"DISPLAY=${env:DISPLAY}",
+		"--network=host"
+	],
+	"workspaceMount": "source=${localWorkspaceFolder},target=/workspace/${localWorkspaceFolderBasename},type=bind",
+	"workspaceFolder": "/workspace/${localWorkspaceFolderBasename}",
+	"features": {},
+	"customizations": {
+		"vscode": {
+			"extensions": [
+				"ms-vscode.cpptools",
+				"ms-vscode.cpptools-themes",
+				"twxs.cmake",
+				"donjayamanne.python-extension-pack",
+				"eamodio.gitlens",
+				"ms-iot.vscode-ros",
+				"ms-vscode.cmake-tools"
+			]
+		}
+	},
+	"postCreateCommand": ""
+}
