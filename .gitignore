@@ -1,3 +1,6 @@
 install
 build
 log
+.cache
+*.pb.cc
+*.pb.h
