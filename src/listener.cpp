@@ -33,46 +33,34 @@ using helloworld::Greeter;
 using helloworld::HelloReply;
 using helloworld::HelloRequest;
 
-// Logic and data behind the server's behavior.
-
-// Logic and data behind the server's behavior.
-/// LifecycleListener class as a simple listener node
-/**
- * We subscribe to two topics
- * - lifecycle_chatter: The data topic from the talker
- * - lc_talker__transition_event: The topic publishing
- *   notifications about state changes of the node
- *   lc_talker
- */
 class GreeterServiceImpl final : public Greeter::Service {
  public:
   std::string msg;
   Status SayHello(ServerContext* context, const HelloRequest* request,
                   HelloReply* reply) override {
     std::string prefix("Hello ");
-    reply->set_message(prefix + request->name());
+    reply->set_message(prefix + msg);
     return Status::OK;
   }
 };
 
-class LifecycleListener : public rclcpp::Node {
+class Listener : public rclcpp::Node {
  public:
-  explicit LifecycleListener(const std::string& node_name) : Node(node_name) {
+  explicit Listener(const std::string& node_name) : Node(node_name) {
     // Data topic from the lc_talker node
+    service_ = std::make_shared<GreeterServiceImpl>();
     sub_data_ = this->create_subscription<std_msgs::msg::String>(
         "chatter", 10,
-        std::bind(&LifecycleListener::data_callback, this,
-                  std::placeholders::_1));
+        std::bind(&Listener::data_callback, this, std::placeholders::_1));
     std::thread t([this]() {
       // 执行需要在新线程中运行的操作
       std::string server_address("0.0.0.0:50051");
-      GreeterServiceImpl service;
       grpc::EnableDefaultHealthCheckService(true);
       grpc::reflection::InitProtoReflectionServerBuilderPlugin();
       ServerBuilder builder;
       builder.AddListeningPort(server_address,
                                grpc::InsecureServerCredentials());
-      builder.RegisterService(&service);
+      builder.RegisterService(service_.get());
       std::unique_ptr<Server> server(builder.BuildAndStart());
       std::cout << "Server listening on " << server_address << std::endl;
       server->Wait();
@@ -81,7 +69,8 @@ class LifecycleListener : public rclcpp::Node {
   }
 
   void data_callback(std_msgs::msg::String::ConstSharedPtr msg) {
-    RCLCPP_INFO(get_logger(), "data_callback: %s", msg->data.c_str());
+    service_->msg = msg->data;
+    RCLCPP_INFO_STREAM(get_logger(), "service_->msg :" << service_->msg);
   }
 
  private:
@@ -106,14 +95,9 @@ int main(int argc, char** argv) {
   // this ensures a correct sync of all prints
   // even when executed simultaneously within the launch file.
   setvbuf(stdout, NULL, _IONBF, BUFSIZ);
-
   rclcpp::init(argc, argv);
-
-  auto lc_listener = std::make_shared<LifecycleListener>("lc_listener");
+  auto lc_listener = std::make_shared<Listener>("listener");
   rclcpp::spin(lc_listener);
-
   rclcpp::shutdown();
-  std::cout << "Server listening on " << std::endl;
-  // RunServer()
   return 0;
 }

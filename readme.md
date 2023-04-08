@@ -12,11 +12,21 @@ colcon --log-level debug build --merge-install --packages-up-to ros_grpc --mixin
 
 ```
 source install/setup.bash
-ros2 run demo_nodes_cpp talker  # 启动ros 消息生产者
-ros2 run ros_grpc listener  # 启动ros消息监听者，并开启grpc服务端
-
-
+ros2 launch ros_grpc talker_listener.launch.xml
 ```
+## 使用 grpc 客户端测试
+### 编译
+```
+cd /var/local/grpc/examples/cpp/helloworld
+mkdir -p cmake/build && cd cmake/build
+cmake -DCMAKE_PREFIX_PATH=~/.grpc ../..
+make
+```
+### 运行
+```
+./greeter_client
+```
+## 
 ## debug
 ```
 gdb ./install/lib/ros_grpc/listener core
