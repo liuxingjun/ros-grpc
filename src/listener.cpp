@@ -1,4 +1,4 @@
-// Copyright 2014 Open Source Robotics Foundation, Inc.
+// Copyright 2016 Open Source Robotics Foundation, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,43 +12,108 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "rclcpp/rclcpp.hpp"
-#include "rclcpp_components/register_node_macro.hpp"
+#include <grpcpp/ext/proto_server_reflection_plugin.h>
+#include <grpcpp/grpcpp.h>
+#include <grpcpp/health_check_service_interface.h>
 
+#include <iostream>
+#include <memory>
+#include <string>
+
+#include "helloworld.grpc.pb.h"
+#include "rclcpp/rclcpp.hpp"
+#include "rcutils/logging_macros.h"
 #include "std_msgs/msg/string.hpp"
 
-#include "visibility_control.h"
+using grpc::Server;
+using grpc::ServerBuilder;
+using grpc::ServerContext;
+using grpc::Status;
+using helloworld::Greeter;
+using helloworld::HelloReply;
+using helloworld::HelloRequest;
 
-namespace demo_nodes_cpp
-{
-// Create a Listener class that subclasses the generic rclcpp::Node base class.
-// The main function below will instantiate the class as a ROS node.
-class Listener : public rclcpp::Node
-{
-public:
-  DEMO_NODES_CPP_PUBLIC
-  explicit Listener(const rclcpp::NodeOptions & options)
-  : Node("listener", options)
-  {
-    // Create a callback function for when messages are received.
-    // Variations of this function also exist using, for example UniquePtr for zero-copy transport.
-    setvbuf(stdout, NULL, _IONBF, BUFSIZ);
-    auto callback =
-      [this](std_msgs::msg::String::ConstSharedPtr msg) -> void
-      {
-        RCLCPP_INFO(this->get_logger(), "I heard: [%s]", msg->data.c_str());
-      };
-    // Create a subscription to the topic which can be matched with one or more compatible ROS
-    // publishers.
-    // Note that not all publishers on the same topic with the same type will be compatible:
-    // they must have compatible Quality of Service policies.
-    sub_ = create_subscription<std_msgs::msg::String>("chatter", 10, callback);
+// Logic and data behind the server's behavior.
+
+// Logic and data behind the server's behavior.
+/// LifecycleListener class as a simple listener node
+/**
+ * We subscribe to two topics
+ * - lifecycle_chatter: The data topic from the talker
+ * - lc_talker__transition_event: The topic publishing
+ *   notifications about state changes of the node
+ *   lc_talker
+ */
+class GreeterServiceImpl final : public Greeter::Service {
+ public:
+  std::string msg;
+  Status SayHello(ServerContext* context, const HelloRequest* request,
+                  HelloReply* reply) override {
+    std::string prefix("Hello ");
+    reply->set_message(prefix + request->name());
+    return Status::OK;
   }
-
-private:
-  rclcpp::Subscription<std_msgs::msg::String>::SharedPtr sub_;
 };
 
-}  // namespace demo_nodes_cpp
+class LifecycleListener : public rclcpp::Node {
+ public:
+  explicit LifecycleListener(const std::string& node_name) : Node(node_name) {
+    // Data topic from the lc_talker node
+    sub_data_ = this->create_subscription<std_msgs::msg::String>(
+        "chatter", 10,
+        std::bind(&LifecycleListener::data_callback, this,
+                  std::placeholders::_1));
+    std::thread t([this]() {
+      // 执行需要在新线程中运行的操作
+      std::string server_address("0.0.0.0:50051");
+      GreeterServiceImpl service;
+      grpc::EnableDefaultHealthCheckService(true);
+      grpc::reflection::InitProtoReflectionServerBuilderPlugin();
+      ServerBuilder builder;
+      builder.AddListeningPort(server_address,
+                               grpc::InsecureServerCredentials());
+      builder.RegisterService(&service);
+      std::unique_ptr<Server> server(builder.BuildAndStart());
+      std::cout << "Server listening on " << server_address << std::endl;
+      server->Wait();
+    });
+    t.detach();  // 让新线程在后台运行
+  }
 
-RCLCPP_COMPONENTS_REGISTER_NODE(demo_nodes_cpp::Listener)
+  void data_callback(std_msgs::msg::String::ConstSharedPtr msg) {
+    RCLCPP_INFO(get_logger(), "data_callback: %s", msg->data.c_str());
+  }
+
+ private:
+  std::shared_ptr<rclcpp::Subscription<std_msgs::msg::String>> sub_data_;
+  std::shared_ptr<GreeterServiceImpl> service_;
+};
+
+int mains(int argc, char** argv) {
+  std::string server_address("0.0.0.0:50051");
+  GreeterServiceImpl service;
+  grpc::EnableDefaultHealthCheckService(true);
+  grpc::reflection::InitProtoReflectionServerBuilderPlugin();
+  ServerBuilder builder;
+  builder.AddListeningPort(server_address, grpc::InsecureServerCredentials());
+  builder.RegisterService(&service);
+  std::unique_ptr<Server> server(builder.BuildAndStart());
+  std::cout << "Server listening on " << server_address << std::endl;
+  server->Wait();
+}
+int main(int argc, char** argv) {
+  // force flush of the stdout buffer.
+  // this ensures a correct sync of all prints
+  // even when executed simultaneously within the launch file.
+  setvbuf(stdout, NULL, _IONBF, BUFSIZ);
+
+  rclcpp::init(argc, argv);
+
+  auto lc_listener = std::make_shared<LifecycleListener>("lc_listener");
+  rclcpp::spin(lc_listener);
+
+  rclcpp::shutdown();
+  std::cout << "Server listening on " << std::endl;
+  // RunServer()
+  return 0;
+}

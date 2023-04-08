@@ -1,68 +1,57 @@
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.8)
 
-project(demo_nodes_cpp)
+project(ros_grpc C CXX)
 
-# Default to C++14
-if(NOT CMAKE_CXX_STANDARD)
-  set(CMAKE_CXX_STANDARD 14)
-endif()
+include(cmake/common.cmake) 
+# Proto file
 
-if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-  add_compile_options(-Wall -Wextra -Wpedantic)
-endif()
+# Generated sources
+set(hw_proto_srcs "include/helloworld.pb.cc")
+set(hw_proto_hdrs "include/helloworld.pb.h")
+set(hw_grpc_srcs "include/helloworld.grpc.pb.cc")
+set(hw_grpc_hdrs "include/helloworld.grpc.pb.h")
+
+# Include generated *.pb.h files
+include_directories(include)
+
+# hw_grpc_proto
+add_library(hw_grpc_proto
+  ${hw_grpc_srcs}
+  ${hw_grpc_hdrs}
+  ${hw_proto_srcs}
+  ${hw_proto_hdrs})
+target_link_libraries(hw_grpc_proto
+  ${_REFLECTION}
+  ${_GRPC_GRPCPP}
+  ${_PROTOBUF_LIBPROTOBUF})
+
 
 find_package(ament_cmake REQUIRED)
-find_package(example_interfaces REQUIRED)
 find_package(rclcpp REQUIRED)
-find_package(rclcpp_components REQUIRED)
-find_package(rcutils)
-find_package(rmw REQUIRED)
 find_package(std_msgs REQUIRED)
 
-include_directories(include)
-# Tutorials of Publish/Subscribe with Topics
-
-add_executable(allocator_tutorial src/allocator_tutorial.cpp)
-ament_target_dependencies(allocator_tutorial
-  "example_interfaces"
-  "rclcpp"
-  "rcutils"
-  "std_msgs")
-install(TARGETS allocator_tutorial
-DESTINATION lib/${PROJECT_NAME})
+add_executable(listener
+	src/listener.cpp
+)
+target_link_libraries(listener
+	hw_grpc_proto
+	${_REFLECTION}
+	${_GRPC_GRPCPP}
+	${_PROTOBUF_LIBPROTOBUF})
 
 
-add_library(topics_library SHARED
-  src/talker.cpp
-  src/listener.cpp)
-
-target_compile_definitions(topics_library PRIVATE "DEMO_NODES_CPP_BUILDING_DLL")
-ament_target_dependencies(topics_library
-  "example_interfaces"
-  "rclcpp"
-  "rclcpp_components"
-  "rcutils"
-  "std_msgs"
-  )
-
-rclcpp_components_register_node(topics_library
-  PLUGIN "demo_nodes_cpp::Talker"
-  EXECUTABLE talker)
-rclcpp_components_register_node(topics_library
-  PLUGIN "demo_nodes_cpp::Listener"
-  EXECUTABLE listener)
-
+ament_target_dependencies(listener
+	"rclcpp"
+	"std_msgs"
+)
 
 install(TARGETS
-  topics_library
-  ARCHIVE DESTINATION lib
-  LIBRARY DESTINATION lib
-  RUNTIME DESTINATION bin)
+	listener
+	DESTINATION lib/${PROJECT_NAME})
 
-# Install launch files.
 install(DIRECTORY
-  launch
-  DESTINATION share/${PROJECT_NAME}/
+	launch
+	DESTINATION share/${PROJECT_NAME}/
 )
 
 ament_package()

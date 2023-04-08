@@ -1,6 +1,13 @@
 {
 	"name": "ros",
-	"image": "liuxingjun/ros:grpc",
+	// "image": "liuxingjun/ros:grpc",
+	"build": {
+		"dockerfile": "Dockerfile",
+		"args": {
+			"VARIANT": "bullseye",
+			"BUILDKIT_INLINE_CACHE": "0"
+		}
+	},
 	"containerEnv": {
 		"DISPLAY": "unix:0",
 		"ROS_LOCALHOST_ONLY": "1",
@@ -24,7 +31,8 @@
 				"donjayamanne.python-extension-pack",
 				"eamodio.gitlens",
 				"ms-iot.vscode-ros",
-				"ms-vscode.cmake-tools"
+				"ms-vscode.cmake-tools",
+				"llvm-vs-code-extensions.vscode-clangd"
 			]
 		}
 	},
