@@ -8,6 +8,13 @@
 			"BUILDKIT_INLINE_CACHE": "0"
 		}
 	},
+	"features": {
+        "ghcr.io/devcontainers-contrib/features/zsh-plugins:0": {
+            "plugins": "zsh-autosuggestions",
+            "omzPlugins": "https://github.com/zsh-users/zsh-autosuggestions"
+        },
+        "ghcr.io/devcontainers/features/docker-in-docker:2": {}
+    },
 	"containerEnv": {
 		"DISPLAY": "unix:0",
 		"ROS_LOCALHOST_ONLY": "1",
