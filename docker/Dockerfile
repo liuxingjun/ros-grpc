@@ -5,10 +5,9 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 ENV GRPC_RELEASE_TAG=v1.53.0
-ENV GRPC_INSTALL_DIR=~/.grpc
+ENV GRPC_DOWNLOAD_DIR=/tmp/grpc
 
-RUN git clone -b ${GRPC_RELEASE_TAG} --recurse-submodules --depth 1 --shallow-submodules https://github.com/grpc/grpc /var/local/grpc 
-RUN cd /var/local/grpc && mkdir -p cmake/build && cd cmake/build \
-    && cmake -DgRPC_INSTALL=ON -DgRPC_BUILD_TESTS=OFF -DCMAKE_INSTALL_PREFIX=$GRPC_INSTALL_DIR ../.. \
+RUN git clone -b ${GRPC_RELEASE_TAG} --recurse-submodules --depth 1 --shallow-submodules https://github.com/grpc/grpc $GRPC_DOWNLOAD_DIR
+RUN cd $GRPC_DOWNLOAD_DIR && mkdir -p cmake/build && cd cmake/build \
+    && cmake -DgRPC_INSTALL=ON -DgRPC_BUILD_TESTS=OFF -DCMAKE_INSTALL_PREFIX=/usr/local ../.. \
     && make && make install 
-RUN echo "PATH=$GRPC_INSTALL_DIR/bin:$PATH" >> ~/.bashrc
